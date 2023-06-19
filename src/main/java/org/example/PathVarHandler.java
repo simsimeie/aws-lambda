@@ -10,7 +10,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class PathVarHandler implements RequestHandler<Map<String,Object>, APIGatewayProxyResponseEvent> {
-    private static final String URL = "jdbc:postgresql://database-2.cbs7c8887131.ap-northeast-2.rds.amazonaws.com:5432/postgres";
+    private static final String URL = "jdbc:postgresql://myrdsproxy.proxy-cbs7c8887131.ap-northeast-2.rds.amazonaws.com:5432/postgres";
     private static final String USER = "postgres";
     private static final String PASSWORD = "postgres";
     @Override
@@ -30,6 +30,7 @@ public class PathVarHandler implements RequestHandler<Map<String,Object>, APIGat
             try (PreparedStatement preparedStatement = conn.prepareStatement(selectSQL)) {
                 preparedStatement.setString(1, path);
                 try (ResultSet rs = preparedStatement.executeQuery()) {
+                    Thread.sleep(5000);
                     while (rs.next()) {
                         // 이 부분에 각 컬럼에 대한 처리를 넣어주세요.
                         // 예를 들어, String data = rs.getString("columnName");
@@ -37,13 +38,14 @@ public class PathVarHandler implements RequestHandler<Map<String,Object>, APIGat
                         context.getLogger().log("## 쿼리조회성공 " + redirectLocation);
 
                     }
-                } catch (SQLException e) {
-                    System.out.println(e.getMessage());
+                } catch (Exception e) {
+                    context.getLogger().log("## 예외발생#1 ");
                 }
-
+            } catch (Exception e) {
+                context.getLogger().log("## 예외발생#2 ");
             }
-        } catch (SQLException ex) {
-            System.out.println(ex.getMessage());
+        } catch (Exception ex) {
+            context.getLogger().log("## 커넥션 에러 ");
         }
 
         context.getLogger().log("Success #1 " + LocalDateTime.now());
