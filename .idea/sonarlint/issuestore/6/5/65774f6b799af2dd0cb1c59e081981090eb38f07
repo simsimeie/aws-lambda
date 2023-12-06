@@ -1,0 +1,8 @@
+
+R
+java:S1141 "5Extract this nested try block into a separate method.(ÂãşÀ8ş¡À–1
+S
+java:S6437"6Revoke and change this password, as it is compromised.(…Ë»£8‘¢À–1
+]	java:S125#"<This block of commented-out lines of code should be removed.(¨–Åõıÿÿÿÿ8’¢À–1
+Z	java:S106)"9Replace this use of System.out or System.err by a logger.(©şêÜúÿÿÿÿ8’¢À–1
+Z	java:S106."9Replace this use of System.out or System.err by a logger.(ı™øøÿÿÿÿ8’¢À–1

@@ -2,58 +2,58 @@ package org.example;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
+import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
+import io.lettuce.core.RedisClient;
+import io.lettuce.core.api.StatefulRedisConnection;
+import io.lettuce.core.api.sync.RedisCommands;
 
 import java.sql.*;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
-public class PathVarHandler implements RequestHandler<Map<String,Object>, APIGatewayProxyResponseEvent> {
-    private static final String URL = "jdbc:postgresql://database-2.cbs7c8887131.ap-northeast-2.rds.amazonaws.com:5432/postgres";
-    private static final String USER = "postgres";
-    private static final String PASSWORD = "postgres";
+public class PathVarHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
+    private static final String ENDPOINT_PRD = "redis://elasticache-for-lambda-0001-001.p8jaip.0001.apn2.cache.amazonaws.com:6379";
+    private static final String ENDPOINT_DEV = "redis://elasticache-for-lambda-0001-001.p8jaip.0001.apn2.cache.amazonaws.com:6379";
+    private static final String profile = "profile";
     @Override
-    public APIGatewayProxyResponseEvent handleRequest(Map<String, Object> input, Context context) {
-        Map<String,String> pathParameters = (Map<String,String>) input.get("pathParameters");
-        String path = "basic";
-        String redirectLocation = "https://naver.com";
+    public APIGatewayProxyResponseEvent handleRequest(APIGatewayProxyRequestEvent request, Context context) {
+        String pathVariable = null;
+        String originUrl = null;
 
-        if (pathParameters != null) {
-            context.getLogger().log("Path variable " + pathParameters.get("data"));
-            path = pathParameters.get("data");
-        }
 
-        String selectSQL = "SELECT origin_url FROM url WHERE short_url = ?";
+        long startTime = System.currentTimeMillis();
 
-        try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
-            try (PreparedStatement preparedStatement = conn.prepareStatement(selectSQL)) {
-                preparedStatement.setString(1, path);
-                try (ResultSet rs = preparedStatement.executeQuery()) {
-                    while (rs.next()) {
-                        // 이 부분에 각 컬럼에 대한 처리를 넣어주세요.
-                        // 예를 들어, String data = rs.getString("columnName");
-                        redirectLocation = rs.getString("origin_url");
-                        context.getLogger().log("## 쿼리조회성공 " + redirectLocation);
+        String endPoint = System.getenv(profile).equals("DEV") ? ENDPOINT_DEV : ENDPOINT_PRD;
+        context.getLogger().log("## Active Profile : " + System.getenv(profile));
 
-                    }
-                } catch (SQLException e) {
-                    System.out.println(e.getMessage());
-                }
+        // 요청 Path 추출
+        pathVariable = request.getPath();
+        context.getLogger().log("Request Path: " + pathVariable);
 
+
+        if (pathVariable != null) {
+            try (RedisClient redisClient = RedisClient.create(endPoint);
+                 StatefulRedisConnection<String, String> connection = redisClient.connect()) {
+                RedisCommands<String, String> syncCommands = connection.sync();
+                originUrl = syncCommands.get(pathVariable);
+                context.getLogger().log("## Origin URL : " + originUrl.substring(0));
+            } catch (Exception e) {
+                context.getLogger().log("## Exception Msg : " + e.getMessage() + " Caused by : " + e.getCause());
+                originUrl = "https://kyobo.com";
             }
-        } catch (SQLException ex) {
-            System.out.println(ex.getMessage());
         }
 
-        context.getLogger().log("Success #1 " + LocalDateTime.now());
         // 리디렉션 응답 생성
         APIGatewayProxyResponseEvent response = new APIGatewayProxyResponseEvent();
         response.setStatusCode(302);
-        response.setHeaders(createRedirectHeaders(redirectLocation));
+        response.setHeaders(createRedirectHeaders(originUrl));
         response.setBody("");
 
-        context.getLogger().log("Success #2 " + LocalDateTime.now());
+        long endTime = System.currentTimeMillis();
+
+        context.getLogger().log("Elapsed Time : " + (endTime - startTime) + " ms");
 
         return response;
     }
